@@ -1,98 +1,283 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🏢 Location-based Check-in System
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Modern location-based check-in system built with NestJS, featuring GPS validation, Trello integration, and real-time task management.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🎯 Features
 
-## Description
+### 📍 **Geolocation Check-in**
+- GPS-based check-in/check-out validation
+- 500m radius geofencing
+- Real-time location verification
+- Distance calculation with Haversine formula
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+### 🔐 **Authentication**
+- OAuth integration (Auth0/Google)
+- JWT token-based authentication
+- Role-based access control (USER/ADMIN)
 
-## Project setup
+### 📋 **Trello Integration**
+- Real-time task synchronization
+- Card creation with checklists
+- Member assignment
+- Kanban workflow (Todo → Doing → Done)
+- Webhook support for live updates
 
-```bash
-$ npm install
-```
+### 🖼️ **File Upload**
+- Supabase Storage integration
+- Auto WebP conversion (80% quality)
+- Image resizing (max 800x800px)
+- Public URL generation
 
-## Compile and run the project
+### 🗄️ **Database**
+- Prisma ORM with PostgreSQL
+- Type-safe database operations
+- Auto-generated migrations
+- Prisma Studio for data management
 
-```bash
-# development
-$ npm run start
+## 🚀 Quick Start
 
-# watch mode
-$ npm run start:dev
+### Prerequisites
+- Node.js 18+
+- PostgreSQL
+- Docker (optional)
 
-# production mode
-$ npm run start:prod
-```
-
-## Run tests
+### Installation
 
 ```bash
-# unit tests
-$ npm run test
+# Clone repository
+git clone git@github.com:KK-Dev82/kk-mini-app-backend.git
+cd kk-mini-app-backend
 
-# e2e tests
-$ npm run test:e2e
+# Install dependencies
+npm install
 
-# test coverage
-$ npm run test:cov
+# Setup environment
+cp .env.example .env
+# Edit .env with your configuration
+
+# Database setup
+npx prisma generate
+npx prisma migrate dev
+
+# Start development server
+npm run start:dev
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### Docker Setup
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Start with Docker Compose
+docker-compose up -d
+
+# Run migrations
+npm run prisma:migrate
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## 📚 API Documentation
 
-## Resources
+### Base URL
+```
+http://localhost:8000
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+### Swagger Documentation
+```
+http://localhost:8000/api
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### Key Endpoints
 
-## Support
+#### 🔐 Authentication
+```http
+POST /auth/register    # Register new user
+POST /auth/login       # User login
+GET  /users/profile    # Get user profile
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+#### 📍 Check-in System
+```http
+GET  /worksites        # Get available worksites
+POST /checkin          # Create check-in/out
+GET  /checkin/history  # Get check-in history
+```
 
-## Stay in touch
+#### 📋 Trello Integration
+```http
+GET  /trello/boards           # Get Trello boards
+GET  /trello/cards            # Get cards from default board
+GET  /trello/members          # Get board members
+POST /trello/cards            # Create new card with checklist
+POST /trello/cards/:id/move   # Move card between lists
+GET  /trello/checklist/:id    # Get checklist details
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+#### 🖼️ File Upload
+```http
+POST /upload/avatar           # Upload user avatar
+GET  /upload/url/:filePath    # Get file public URL
+```
 
-## License
+## 🏗️ Project Structure
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+```
+src/
+├── config/              # Configuration files
+├── common/              # Shared utilities
+│   ├── filters/         # Exception filters
+│   ├── guards/          # Auth guards
+│   └── interceptors/    # Request interceptors
+├── database/            # Database related (deprecated - using Prisma)
+├── lib/                 # Utility libraries
+│   └── geo/            # Geolocation utilities
+├── modules/            # Feature modules
+│   ├── auth/           # Authentication
+│   ├── user/           # User management
+│   ├── worksite/       # Worksite management
+│   ├── checkin/        # Check-in system
+│   ├── task/           # Task & Trello integration
+│   ├── upload/         # File upload
+│   └── admin/          # Admin panel
+├── prisma/             # Prisma client & service
+└── shared/             # Shared DTOs & types
+```
+
+## 🔧 Environment Variables
+
+```env
+# Application
+NODE_ENV=development
+PORT=8000
+API_PREFIX=api
+
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/wlb_db"
+
+# Authentication
+JWT_SECRET=your-super-secret-jwt-key
+JWT_EXPIRES_IN=24h
+
+# Trello Integration
+TRELLO_API_KEY=your-trello-api-key
+TRELLO_TOKEN=your-trello-token
+TRELLO_BOARD_ID=your-board-id
+
+# Supabase Storage
+SUPABASE_URL=your-supabase-url
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_KEY=your-service-key
+SUPABASE_STORAGE_BUCKET=avatars
+
+# Geofencing
+GEOFENCE_RADIUS=500
+```
+
+## 🗄️ Database Schema
+
+### User Model
+```prisma
+model User {
+  id        String   @id @default(cuid())
+  auth0Id   String   @unique
+  email     String   @unique
+  name      String?
+  picture   String?  // Supabase storage path
+  role      UserRole @default(USER)
+  
+  tasks     Task[]
+  checkins  Checkin[]
+}
+```
+
+### Worksite Model
+```prisma
+model Worksite {
+  id          String  @id @default(cuid())
+  name        String
+  latitude    Decimal @db.Decimal(10, 8)
+  longitude   Decimal @db.Decimal(11, 8)
+  radius      Int     @default(500)
+  
+  checkins    Checkin[]
+}
+```
+
+### Check-in Model
+```prisma
+model Checkin {
+  id         String      @id @default(cuid())
+  type       CheckinType // CHECK_IN | CHECK_OUT
+  latitude   Decimal
+  longitude  Decimal
+  distance   Decimal     // Distance from worksite
+  
+  user       User
+  worksite   Worksite
+}
+```
+
+## 🧪 Testing
+
+```bash
+# Unit tests
+npm run test
+
+# E2E tests
+npm run test:e2e
+
+# Test coverage
+npm run test:cov
+```
+
+## 📦 Available Scripts
+
+```bash
+npm run start          # Start production server
+npm run start:dev      # Start development server
+npm run start:debug    # Start debug mode
+npm run build          # Build for production
+
+npm run prisma:generate # Generate Prisma client
+npm run prisma:migrate  # Run database migrations
+npm run prisma:studio   # Open Prisma Studio
+npm run prisma:deploy   # Deploy migrations to production
+
+npm run lint           # Run ESLint
+npm run format         # Format code with Prettier
+```
+
+## 🚀 Deployment
+
+### Production Build
+```bash
+npm run build
+npm run start:prod
+```
+
+### Docker Deployment
+```bash
+docker build -t wlb-backend .
+docker run -p 3000:3000 wlb-backend
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 🔗 Related Links
+
+- [NestJS Documentation](https://docs.nestjs.com/)
+- [Prisma Documentation](https://www.prisma.io/docs/)
+- [Trello API Documentation](https://developer.atlassian.com/cloud/trello/rest/)
+- [Supabase Documentation](https://supabase.com/docs)
+
+---
+
+Built with ❤️ using NestJS, Prisma, and modern web technologies.
