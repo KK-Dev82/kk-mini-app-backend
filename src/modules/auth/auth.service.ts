@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { OAuthCallbackDto } from './dto/oauth-callback.dto';
 
 @Injectable()
 export class AuthService {
@@ -35,6 +36,30 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     // For OAuth-based system, this should be replaced with OAuth flow
     throw new UnauthorizedException('Please use OAuth login (Google/Auth0)');
+  }
+
+  async handleOAuthCallback(oauthData: OAuthCallbackDto) {
+    const user = await this.createOrUpdateOAuthUser({
+      auth0Id: oauthData.sub,
+      email: oauthData.email,
+      name: oauthData.name,
+      picture: oauthData.picture,
+    });
+
+    // Generate JWT token
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const token = this.jwtService.sign(payload);
+
+    return {
+      access_token: token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        role: user.role,
+      },
+    };
   }
 
   async createOrUpdateOAuthUser(oauthData: { auth0Id: string; email: string; name?: string; picture?: string }) {

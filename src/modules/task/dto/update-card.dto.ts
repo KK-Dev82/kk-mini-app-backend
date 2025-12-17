@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsDateString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateCardDto {
@@ -16,6 +16,16 @@ export class UpdateCardDto {
   @IsOptional()
   @IsString()
   desc?: string;
+
+  @ApiProperty({ example: '2025-12-01T09:00:00.000Z', required: false })
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @ApiProperty({ example: '2025-12-05T12:00:00.000Z', required: false })
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
 }
 
 export class MoveCardDto {

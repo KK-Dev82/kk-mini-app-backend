@@ -21,6 +21,11 @@ export class CreateCardDto {
   @IsString({ each: true })
   memberIds?: string[];
 
+  @ApiProperty({ example: '2025-12-01T09:00:00.000Z', required: false })
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
   @ApiProperty({ example: '2025-12-05T12:00:00.000Z', required: false })
   @IsOptional()
   @IsDateString()
@@ -31,4 +36,9 @@ export class CreateCardDto {
   @IsArray()
   @IsString({ each: true })
   checklistItems?: string[];
+
+  @ApiProperty({ example: 'clxxx123', required: false })
+  @IsOptional()
+  @IsString()
+  projectId?: string;
 }

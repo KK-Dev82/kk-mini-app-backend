@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { OAuthCallbackDto } from './dto/oauth-callback.dto';
 import { LoginResponseDto, UserResponseDto } from './dto/auth-response.dto';
 import { ErrorResponseDto } from '../../shared/dto/response.dto';
 
@@ -28,5 +29,14 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Validation error', type: ErrorResponseDto })
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @Post('oauth/callback')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'OAuth callback - create/update user and return JWT' })
+  @ApiResponse({ status: 200, description: 'OAuth login successful', type: LoginResponseDto })
+  @ApiResponse({ status: 400, description: 'Validation error', type: ErrorResponseDto })
+  async oauthCallback(@Body() oauthData: OAuthCallbackDto) {
+    return this.authService.handleOAuthCallback(oauthData);
   }
 }

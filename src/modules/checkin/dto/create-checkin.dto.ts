@@ -1,9 +1,9 @@
-import { IsEnum, IsNumber, IsString, IsOptional, IsUUID } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsBase64 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { CheckinType } from '@prisma/client';
 
 export class CreateCheckinDto {
-  @ApiProperty({ enum: CheckinType })
+  @ApiProperty({ example: 'CHECK_IN', enum: CheckinType })
   @IsEnum(CheckinType)
   type: CheckinType;
 
@@ -15,11 +15,17 @@ export class CreateCheckinDto {
   @IsNumber()
   longitude: number;
 
-  @ApiProperty()
-  @IsUUID()
-  worksiteId: string;
+  @ApiProperty({ example: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ...', required: false })
+  @IsOptional()
+  @IsString()
+  photo?: string;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ example: 'ออกพบลูกค้า', required: false })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @ApiProperty({ example: 'พบลูกค้าที่อาคาร ABC ชั้น 5', required: false })
   @IsOptional()
   @IsString()
   notes?: string;

@@ -10,6 +10,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { appConfig, dbConfig, trelloConfig, authConfig } from './config';
 import supabaseConfig from './config/supabase.config';
 import { UploadModule } from './modules/upload/upload.module';
+import { ProjectModule } from './modules/project/project.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { UploadModule } from './modules/upload/upload.module';
     TaskModule,
     AdminModule,
     UploadModule,
+    ProjectModule,
   ],
 })
 export class AppModule {}

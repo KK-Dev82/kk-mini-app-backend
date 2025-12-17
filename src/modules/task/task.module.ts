@@ -5,11 +5,12 @@ import { TaskService } from './task.service';
 import { TrelloService } from './trello/trello.service';
 import { TrelloController } from './trello/trello.controller';
 import { TrelloWebhookController } from './trello/trello.webhook.controller';
+import { ProjectService } from '../project/project.service';
 
 @Module({
   imports: [HttpModule],
   controllers: [TaskController, TrelloController, TrelloWebhookController],
-  providers: [TaskService, TrelloService],
+  providers: [TaskService, TrelloService, ProjectService],
   exports: [TaskService],
 })
 export class TaskModule {}

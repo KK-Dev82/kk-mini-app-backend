@@ -3,7 +3,9 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { TrelloService } from './trello.service';
 import { CreateCardDto } from '../dto/create-card.dto';
 import { UpdateCardDto, MoveCardDto } from '../dto/update-card.dto';
+import { TrelloBoardDto, TrelloListDto, TrelloCardDto, TrelloMemberDto } from '../dto/trello-response.dto';
 import { ConfigService } from '@nestjs/config';
+import { ProjectService } from '../../project/project.service';
 
 @ApiTags('Trello')
 @Controller('trello')
@@ -11,6 +13,7 @@ export class TrelloController {
   constructor(
     private readonly trelloService: TrelloService,
     private readonly configService: ConfigService,
+    private readonly projectService: ProjectService,
   ) {}
 
   @Get('config')
@@ -26,7 +29,7 @@ export class TrelloController {
   @Get('boards/:boardId/members')
   @ApiOperation({ summary: 'Get board members' })
   @ApiParam({ name: 'boardId', description: 'Trello board ID' })
-  @ApiResponse({ status: 200, description: 'Members retrieved successfully' })
+  @ApiResponse({ status: 200, description: 'Members retrieved successfully', type: [TrelloMemberDto] })
   async getBoardMembers(@Param('boardId') boardId: string) {
     try {
       return await this.trelloService.getBoardMembers(boardId);
@@ -37,7 +40,7 @@ export class TrelloController {
 
   @Get('members')
   @ApiOperation({ summary: 'Get default board members' })
-  @ApiResponse({ status: 200, description: 'Members retrieved successfully' })
+  @ApiResponse({ status: 200, description: 'Members retrieved successfully', type: [TrelloMemberDto] })
   async getMembers() {
     try {
       return await this.trelloService.getBoardMembers();
@@ -48,7 +51,7 @@ export class TrelloController {
 
   @Get('boards')
   @ApiOperation({ summary: 'Get all Trello boards' })
-  @ApiResponse({ status: 200, description: 'Boards retrieved successfully' })
+  @ApiResponse({ status: 200, description: 'Boards retrieved successfully', type: [TrelloBoardDto] })
   async getBoards() {
     try {
       return await this.trelloService.getBoards();
@@ -59,7 +62,7 @@ export class TrelloController {
 
   @Get('cards')
   @ApiOperation({ summary: 'Get cards from default board' })
-  @ApiResponse({ status: 200, description: 'Cards retrieved successfully' })
+  @ApiResponse({ status: 200, description: 'Cards retrieved successfully', type: [TrelloCardDto] })
   async getCards() {
     try {
       return await this.trelloService.getCards();
@@ -68,10 +71,33 @@ export class TrelloController {
     }
   }
 
+  @Get('cards/tag/:tag')
+  @ApiOperation({ summary: 'Get cards by project tag' })
+  @ApiParam({ name: 'tag', description: 'Project tag (e.g., MOBILE, ECOM)' })
+  @ApiResponse({ status: 200, description: 'Cards filtered by tag successfully', type: [TrelloCardDto] })
+  async getCardsByTag(@Param('tag') tag: string) {
+    try {
+      return await this.trelloService.getCardsByTag(tag);
+    } catch (error) {
+      return { error: error.message, details: 'Failed to fetch cards by tag' };
+    }
+  }
+
+  @Get('lists')
+  @ApiOperation({ summary: 'Get lists from default board' })
+  @ApiResponse({ status: 200, description: 'Lists retrieved successfully', type: [TrelloListDto] })
+  async getLists() {
+    try {
+      return await this.trelloService.getBoardLists();
+    } catch (error) {
+      return { error: error.message, details: 'Failed to fetch lists' };
+    }
+  }
+
   @Get('boards/:boardId/lists')
   @ApiOperation({ summary: 'Get lists from a board' })
   @ApiParam({ name: 'boardId', description: 'Trello board ID' })
-  @ApiResponse({ status: 200, description: 'Lists retrieved successfully' })
+  @ApiResponse({ status: 200, description: 'Lists retrieved successfully', type: [TrelloListDto] })
   async getBoardLists(@Param('boardId') boardId: string) {
     try {
       return await this.trelloService.getBoardLists(boardId);
@@ -83,7 +109,7 @@ export class TrelloController {
   @Get('boards/:boardId/cards')
   @ApiOperation({ summary: 'Get cards from a board' })
   @ApiParam({ name: 'boardId', description: 'Trello board ID' })
-  @ApiResponse({ status: 200, description: 'Cards retrieved successfully' })
+  @ApiResponse({ status: 200, description: 'Cards retrieved successfully', type: [TrelloCardDto] })
   async getBoardCards(@Param('boardId') boardId: string) {
     try {
       return await this.trelloService.getCards(boardId);
@@ -95,7 +121,7 @@ export class TrelloController {
   @Get('cards/:cardId')
   @ApiOperation({ summary: 'Get specific card details with checklists' })
   @ApiParam({ name: 'cardId', description: 'Trello card ID' })
-  @ApiResponse({ status: 200, description: 'Card retrieved successfully' })
+  @ApiResponse({ status: 200, description: 'Card retrieved successfully', type: TrelloCardDto })
   async getCard(@Param('cardId') cardId: string) {
     try {
       return await this.trelloService.getCard(cardId);
@@ -118,16 +144,25 @@ export class TrelloController {
 
   @Post('cards')
   @ApiOperation({ summary: 'Create new card with optional assignees, due date, and checklist' })
-  @ApiResponse({ status: 201, description: 'Card created successfully' })
+  @ApiResponse({ status: 201, description: 'Card created successfully', type: TrelloCardDto })
   async createCard(@Body() createCardDto: CreateCardDto) {
     try {
+      // Get project tag if projectId is provided
+      let projectTag: string | undefined;
+      if (createCardDto.projectId) {
+        const project = await this.projectService.findById(createCardDto.projectId);
+        projectTag = project?.trelloTag;
+      }
+
       // Create the card first
       const card = await this.trelloService.createCard(
         createCardDto.listId, 
         createCardDto.name, 
         createCardDto.desc,
         createCardDto.memberIds,
-        createCardDto.dueDate
+        createCardDto.startDate,
+        createCardDto.dueDate,
+        projectTag
       );
 
       // Add checklist if provided
@@ -161,7 +196,7 @@ export class TrelloController {
   @Put('cards/:cardId')
   @ApiOperation({ summary: 'Update card details' })
   @ApiParam({ name: 'cardId', description: 'Trello card ID' })
-  @ApiResponse({ status: 200, description: 'Card updated successfully' })
+  @ApiResponse({ status: 200, description: 'Card updated successfully', type: TrelloCardDto })
   async updateCard(@Param('cardId') cardId: string, @Body() updateCardDto: UpdateCardDto) {
     try {
       return await this.trelloService.updateCard(cardId, updateCardDto);
@@ -173,7 +208,7 @@ export class TrelloController {
   @Post('cards/:cardId/move')
   @ApiOperation({ summary: 'Move card to different list (e.g., todos → doing → done)' })
   @ApiParam({ name: 'cardId', description: 'Trello card ID' })
-  @ApiResponse({ status: 200, description: 'Card moved successfully' })
+  @ApiResponse({ status: 200, description: 'Card moved successfully', type: TrelloCardDto })
   async moveCard(@Param('cardId') cardId: string, @Body() moveCardDto: MoveCardDto) {
     try {
       return await this.trelloService.moveCardToList(cardId, moveCardDto.listId);

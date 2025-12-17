@@ -7,11 +7,14 @@ export class UserResponseDto {
   @ApiProperty({ example: 'user@example.com' })
   email: string;
 
-  @ApiProperty({ example: 'John' })
-  firstName: string;
+  @ApiProperty({ example: 'John Doe' })
+  name: string;
 
-  @ApiProperty({ example: 'Doe' })
-  lastName: string;
+  @ApiProperty({ example: 'https://example.com/avatar.jpg', required: false })
+  picture?: string;
+
+  @ApiProperty({ example: '5f8a7b2c3d4e5f6g7h8i9j0k', required: false })
+  trelloMemberId?: string;
 
   @ApiProperty({ example: 'USER', enum: ['USER', 'ADMIN'] })
   role: string;

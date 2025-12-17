@@ -20,7 +20,12 @@ export class CheckinController {
   @ApiResponse({ status: 404, description: 'Worksite not found', type: ErrorResponseDto })
   @ApiResponse({ status: 401, description: 'Unauthorized', type: ErrorResponseDto })
   async createCheckin(@Body() createCheckinDto: CreateCheckinDto, @Request() req) {
-    return this.checkinService.createCheckin(createCheckinDto, req.user.id);
+    try {
+      return await this.checkinService.createCheckin(createCheckinDto, req.user.id);
+    } catch (error) {
+      console.error('Controller error:', error);
+      throw error;
+    }
   }
 
   @Get('history')
@@ -29,5 +34,13 @@ export class CheckinController {
   @ApiResponse({ status: 401, description: 'Unauthorized', type: ErrorResponseDto })
   async getHistory(@Request() req) {
     return this.checkinService.getUserHistory(req.user.id);
+  }
+
+  @Get('status')
+  @ApiOperation({ summary: 'Get current check-in status' })
+  @ApiResponse({ status: 200, description: 'Check-in status retrieved' })
+  @ApiResponse({ status: 401, description: 'Unauthorized', type: ErrorResponseDto })
+  async getStatus(@Request() req) {
+    return this.checkinService.getCheckinStatus(req.user.id);
   }
 }
