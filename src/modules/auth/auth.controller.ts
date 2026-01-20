@@ -1,42 +1,97 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
-import { OAuthCallbackDto } from './dto/oauth-callback.dto';
-import { LoginResponseDto, UserResponseDto } from './dto/auth-response.dto';
-import { ErrorResponseDto } from '../../shared/dto/response.dto';
+import { PrismaService } from '../../prisma/prisma.service';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
 
-  @Post('register')
-  @ApiOperation({ summary: 'Register new user' })
-  @ApiResponse({ status: 201, description: 'User registered successfully', type: UserResponseDto })
-  @ApiResponse({ status: 409, description: 'Email already exists', type: ErrorResponseDto })
-  @ApiResponse({ status: 400, description: 'Validation error', type: ErrorResponseDto })
-  async register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+  @Get('whitelist-check')
+  @ApiOperation({ summary: 'Check if email is whitelisted (for Auth0 Action)' })
+  @ApiQuery({ name: 'email', description: 'Email to check' })
+  @ApiResponse({ status: 200, description: 'Whitelist status' })
+  async checkWhitelist(@Query('email') email: string) {
+    return this.authService.checkWhitelist(email);
   }
 
-  @Post('login')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'User login' })
-  @ApiResponse({ status: 200, description: 'Login successful', type: LoginResponseDto })
-  @ApiResponse({ status: 401, description: 'Invalid credentials', type: ErrorResponseDto })
-  @ApiResponse({ status: 400, description: 'Validation error', type: ErrorResponseDto })
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  @Post('whitelist/add')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Add email to whitelist (Admin only)' })
+  @ApiResponse({ status: 201, description: 'Email added to whitelist' })
+  async addToWhitelist(@Body() body: { email: string; role?: 'USER' | 'ADMIN' }) {
+    return this.authService.addToWhitelist(body.email, body.role || 'USER');
   }
 
-  @Post('oauth/callback')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'OAuth callback - create/update user and return JWT' })
-  @ApiResponse({ status: 200, description: 'OAuth login successful', type: LoginResponseDto })
-  @ApiResponse({ status: 400, description: 'Validation error', type: ErrorResponseDto })
-  async oauthCallback(@Body() oauthData: OAuthCallbackDto) {
-    return this.authService.handleOAuthCallback(oauthData);
+  @Post('callback')
+  @ApiOperation({ summary: 'OAuth callback handler' })
+  @ApiResponse({ status: 200, description: 'User authenticated successfully' })
+  async handleCallback(@Body() body: any) {
+    const { user } = body;
+    
+    if (!user || !user.email) {
+      return { success: false, message: 'Invalid user data' };
+    }
+
+    // เช็ค whitelist
+    const whitelistCheck = await this.authService.checkWhitelist(user.email);
+    
+    if (!whitelistCheck.allowed) {
+      return { 
+        success: false, 
+        message: whitelistCheck.message 
+      };
+    }
+
+    // สร้าง/อัปเดต user ในฐานข้อมูล
+    const dbUser = await this.authService.createOrUpdateUser({
+      auth0Id: user.sub,
+      email: user.email,
+      name: user.name,
+      picture: user.picture,
+      role: whitelistCheck.role || 'USER',
+    });
+
+    // สร้าง JWT token
+    const payload = { 
+      sub: dbUser.id, 
+      email: dbUser.email, 
+      role: dbUser.role 
+    };
+    const accessToken = this.jwtService.sign(payload);
+
+    return {
+      success: true,
+      message: 'Authentication successful',
+      access_token: accessToken,
+      user: {
+        id: dbUser.id,
+        email: dbUser.email,
+        name: dbUser.name,
+        picture: dbUser.picture,
+        role: dbUser.role,
+        trelloMemberId: dbUser.trelloMemberId,
+        needsTrelloLink: !dbUser.trelloMemberId,
+      },
+    };
+  }
+
+  @Get('whitelist')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Get all whitelist entries (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Whitelist entries retrieved' })
+  async getWhitelist() {
+    return this.authService.getWhitelist();
   }
 }

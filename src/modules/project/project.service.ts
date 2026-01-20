@@ -51,7 +51,6 @@ export class ProjectService {
 
   async findAll() {
     return this.prisma.project.findMany({
-      where: { isActive: true },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -102,6 +101,21 @@ export class ProjectService {
           }
         }
       }
+    });
+  }
+
+  async updateStatus(id: string, isActive: boolean) {
+    const project = await this.prisma.project.findUnique({
+      where: { id }
+    });
+
+    if (!project) {
+      throw new NotFoundException(`Project with id '${id}' not found`);
+    }
+
+    return this.prisma.project.update({
+      where: { id },
+      data: { isActive },
     });
   }
 }

@@ -11,11 +11,7 @@ export class TrelloWebhookController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Handle Trello webhook events' })
   async handleWebhook(@Body() payload: any) {
-    if (payload.action?.type === 'createCard' || payload.action?.type === 'updateCard') {
-      const cardData = payload.action.data.card;
-      await this.taskService.syncFromTrello(cardData);
-    }
-
+    // Webhook handler - currently disabled as we only create tasks on manual assignment
     return { status: 'ok' };
   }
 }

@@ -115,11 +115,20 @@ export class ProjectController {
     return this.projectMemberService.updateRole(projectId, userId, body.role as any);
   }
 
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
   @Get(':id/members')
-  @ApiOperation({ summary: 'Get project members' })
+  @ApiOperation({ summary: 'Get project members (no auth required)' })
   async getMembers(@Param('id') projectId: string) {
     return this.projectMemberService.getProjectMembers(projectId);
+  }
+
+  @Put(':id/status')
+  @ApiOperation({ summary: 'Update project active status (soft delete/restore)' })
+  @ApiResponse({ status: 200, description: 'Project status updated successfully', type: ProjectResponseDto })
+  @ApiResponse({ status: 404, description: 'Project not found', type: ErrorResponseDto })
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() body: { isActive: boolean }
+  ) {
+    return this.projectService.updateStatus(id, body.isActive);
   }
 }

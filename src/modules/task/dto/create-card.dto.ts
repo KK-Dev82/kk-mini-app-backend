@@ -41,4 +41,14 @@ export class CreateCardDto {
   @IsOptional()
   @IsString()
   projectId?: string;
+
+  @ApiProperty({ example: 'cmk2aswix0001jr1lwv4cpyun', required: false })
+  @IsOptional()
+  @IsString()
+  phaseId?: string;
+
+  @ApiProperty({ example: 'HIGH', enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], required: false })
+  @IsOptional()
+  @IsString()
+  priority?: string;
 }

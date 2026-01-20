@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { TrelloService } from './trello.service';
 import { CreateCardDto } from '../dto/create-card.dto';
@@ -6,6 +6,9 @@ import { UpdateCardDto, MoveCardDto } from '../dto/update-card.dto';
 import { TrelloBoardDto, TrelloListDto, TrelloCardDto, TrelloMemberDto } from '../dto/trello-response.dto';
 import { ConfigService } from '@nestjs/config';
 import { ProjectService } from '../../project/project.service';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { TaskService } from '../task.service';
+import { ModuleRef } from '@nestjs/core';
 
 @ApiTags('Trello')
 @Controller('trello')
@@ -14,6 +17,9 @@ export class TrelloController {
     private readonly trelloService: TrelloService,
     private readonly configService: ConfigService,
     private readonly projectService: ProjectService,
+    private readonly prisma: PrismaService,
+    private readonly taskService: TaskService,
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   @Get('config')
@@ -143,7 +149,13 @@ export class TrelloController {
   }
 
   @Post('cards')
-  @ApiOperation({ summary: 'Create new card with optional assignees, due date, and checklist' })
+  @ApiOperation({ 
+    summary: 'Create new Trello card (Single Source of Truth)',
+    description: `Create Trello card only. No database task creation needed.
+    
+    **Phase Integration:** Use trelloListId from phase configuration.
+    **Project Integration:** Project tag will be added to card name.`
+  })
   @ApiResponse({ status: 201, description: 'Card created successfully', type: TrelloCardDto })
   async createCard(@Body() createCardDto: CreateCardDto) {
     try {
@@ -154,7 +166,7 @@ export class TrelloController {
         projectTag = project?.trelloTag;
       }
 
-      // Create the card first
+      // Create the card in Trello
       const card = await this.trelloService.createCard(
         createCardDto.listId, 
         createCardDto.name, 
@@ -162,14 +174,14 @@ export class TrelloController {
         createCardDto.memberIds,
         createCardDto.startDate,
         createCardDto.dueDate,
-        projectTag
+        projectTag,
+        createCardDto.priority
       );
 
       // Add checklist if provided
       if (createCardDto.checklistItems && createCardDto.checklistItems.length > 0) {
         const checklist = await this.trelloService.createChecklist(card.id, 'ขั้นตอนการทำงาน');
         
-        // Add each checklist item
         for (const item of createCardDto.checklistItems) {
           await this.trelloService.addChecklistItem(checklist.id, item);
         }
@@ -193,6 +205,30 @@ export class TrelloController {
     }
   }
 
+  @Post('cards/:cardId/unassign')
+  @ApiOperation({ summary: 'Unassign member from card' })
+  @ApiParam({ name: 'cardId', description: 'Trello card ID' })
+  @ApiResponse({ status: 200, description: 'Member unassigned successfully' })
+  async unassignMember(@Param('cardId') cardId: string, @Body() body: { memberId: string }) {
+    try {
+      return await this.trelloService.unassignMemberFromCard(cardId, body.memberId);
+    } catch (error) {
+      return { error: error.message, details: 'Failed to unassign member' };
+    }
+  }
+
+  @Put('cards/:cardId/members')
+  @ApiOperation({ summary: 'Update card members (replace all members)' })
+  @ApiParam({ name: 'cardId', description: 'Trello card ID' })
+  @ApiResponse({ status: 200, description: 'Card members updated successfully' })
+  async updateCardMembers(@Param('cardId') cardId: string, @Body() body: { memberIds: string[] }) {
+    try {
+      return await this.trelloService.updateCardMembers(cardId, body.memberIds);
+    } catch (error) {
+      return { error: error.message, details: 'Failed to update card members' };
+    }
+  }
+
   @Put('cards/:cardId')
   @ApiOperation({ summary: 'Update card details' })
   @ApiParam({ name: 'cardId', description: 'Trello card ID' })
@@ -205,6 +241,79 @@ export class TrelloController {
     }
   }
 
+  @Get('phases/:phaseId/cards')
+  @ApiOperation({ 
+    summary: 'Get cards from phase (via trelloListId)',
+    description: 'Get Trello cards directly from phase\'s linked Trello list'
+  })
+  @ApiParam({ name: 'phaseId', description: 'Phase ID' })
+  @ApiResponse({ status: 200, description: 'Phase cards retrieved successfully' })
+  async getPhaseCards(@Param('phaseId') phaseId: string) {
+    try {
+      // Get phase with trelloListId
+      const phase = await this.prisma.projectPhase.findUnique({
+        where: { id: phaseId },
+        select: { trelloListId: true }
+      });
+      
+      if (!phase?.trelloListId) {
+        return { error: 'Phase not linked to Trello list' };
+      }
+      
+      return await this.trelloService.getCardsFromList(phase.trelloListId);
+    } catch (error) {
+      return { error: error.message, details: 'Failed to fetch phase cards' };
+    }
+  }
+
+  @Put('cards/:cardId/phase')
+  @ApiOperation({ 
+    summary: 'Assign card to phase and create task',
+    description: `Assign Trello card to phase and automatically create task in database.
+    
+    **Single Flow:**
+    1. Update card description with phase info
+    2. Create task record in database
+    3. Return both Trello card and created task`
+  })
+  @ApiParam({ name: 'cardId', description: 'Trello card ID' })
+  @ApiResponse({ status: 200, description: 'Card assigned to phase and task created successfully' })
+  async assignCardToPhase(
+    @Param('cardId') cardId: string,
+    @Body() body: { phaseId: string }
+  ) {
+    try {
+      // Assign card to phase in Trello
+      const trelloResult = await this.trelloService.assignCardToPhase(cardId, body.phaseId);
+      
+      // Create task in database
+      const task = await this.taskService.createTaskFromCard(cardId, body.phaseId);
+      
+      return {
+        trelloCard: trelloResult,
+        task: task,
+        message: 'Card assigned to phase and task created successfully'
+      };
+    } catch (error) {
+      return { error: error.message, details: 'Failed to assign card to phase and create task' };
+    }
+  }
+
+  @Delete('cards/:cardId/phase')
+  @ApiOperation({ 
+    summary: 'Remove card from phase',
+    description: 'Remove manual phase assignment. Card will fall back to automatic date-based assignment.'
+  })
+  @ApiParam({ name: 'cardId', description: 'Trello card ID' })
+  @ApiResponse({ status: 200, description: 'Card removed from phase successfully' })
+  async removeCardFromPhase(@Param('cardId') cardId: string) {
+    try {
+      return await this.trelloService.removeCardFromPhase(cardId);
+    } catch (error) {
+      return { error: error.message, details: 'Failed to remove card from phase' };
+    }
+  }
+
   @Post('cards/:cardId/move')
   @ApiOperation({ summary: 'Move card to different list (e.g., todos → doing → done)' })
   @ApiParam({ name: 'cardId', description: 'Trello card ID' })
@@ -214,6 +323,23 @@ export class TrelloController {
       return await this.trelloService.moveCardToList(cardId, moveCardDto.listId);
     } catch (error) {
       return { error: error.message, details: 'Failed to move card' };
+    }
+  }
+
+  @Put('cards/:cardId/checklist/:checkItemId')
+  @ApiOperation({ summary: 'Update checklist item state (complete/incomplete)' })
+  @ApiParam({ name: 'cardId', description: 'Trello card ID' })
+  @ApiParam({ name: 'checkItemId', description: 'Checklist item ID' })
+  @ApiResponse({ status: 200, description: 'Checklist item updated successfully' })
+  async updateChecklistItem(
+    @Param('cardId') cardId: string,
+    @Param('checkItemId') checkItemId: string,
+    @Body() body: { state: 'complete' | 'incomplete' }
+  ) {
+    try {
+      return await this.trelloService.updateChecklistItem(cardId, checkItemId, body.state);
+    } catch (error) {
+      return { error: error.message, details: 'Failed to update checklist item' };
     }
   }
 }

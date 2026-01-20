@@ -1,38 +1,22 @@
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { Controller, Post, Get, Param, Body } from '@nestjs/common';
 import { TaskService } from './task.service';
-import { TaskResponseDto } from './dto/task-response.dto';
-import { ErrorResponseDto } from '../../shared/dto/response.dto';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
-@ApiTags('Tasks')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@ApiTags('tasks')
 @Controller('tasks')
 export class TaskController {
   constructor(private readonly taskService: TaskService) {}
 
-  @Get('my-tasks')
-  @ApiOperation({ summary: 'Get user assigned tasks' })
-  @ApiResponse({ status: 200, description: 'User tasks retrieved', type: [TaskResponseDto] })
-  @ApiResponse({ status: 401, description: 'Unauthorized', type: ErrorResponseDto })
-  async getMyTasks(@Request() req) {
-    return this.taskService.findByUserId(req.user.id);
+  @Post('create-from-card')
+  @ApiOperation({ summary: 'Create task from Trello card when assigned to phase' })
+  @ApiResponse({ status: 200, description: 'Task created successfully' })
+  async createFromCard(@Body() body: { cardId: string; phaseId: string }) {
+    return this.taskService.createTaskFromCard(body.cardId, body.phaseId);
   }
 
-  @Get('weekly')
-  @ApiOperation({ summary: 'Get tasks due within this week' })
-  @ApiResponse({ status: 200, description: 'Weekly tasks retrieved', type: [TaskResponseDto] })
-  @ApiResponse({ status: 401, description: 'Unauthorized', type: ErrorResponseDto })
-  async getWeeklyTasks(@Request() req) {
-    return this.taskService.getWeeklyTasks(req.user.id);
-  }
-
-  @Get()
-  @ApiOperation({ summary: 'Get all tasks' })
-  @ApiResponse({ status: 200, description: 'All tasks retrieved', type: [TaskResponseDto] })
-  @ApiResponse({ status: 401, description: 'Unauthorized', type: ErrorResponseDto })
-  async getAllTasks() {
-    return this.taskService.findAll();
+  @Get('phase/:phaseId')
+  @ApiOperation({ summary: 'Get tasks by phase ID' })
+  async getTasksByPhase(@Param('phaseId') phaseId: string) {
+    return this.taskService.getTasksByPhase(phaseId);
   }
 }

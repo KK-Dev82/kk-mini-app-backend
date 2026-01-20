@@ -12,14 +12,30 @@ enum UserRole {
   USER
 }
 
+enum WhitelistStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum CheckinType {
   CHECK_IN
   CHECK_OUT
+  LEAVE       // การลา (ป่วย/กิจ/พักร้อน)
+  ABSENT      // ขาดงาน (ไม่มาทำงานโดยไม่ลา)
+  AUTO_CHECKOUT // เช็คเอาท์อัตโนมัติ (ลืมเช็คเอาท์)
 }
 
 enum LocationType {
   ONSITE
   OFFSITE
+}
+
+enum LeaveType {
+  SICK_LEAVE      // ลาป่วย
+  PERSONAL_LEAVE  // ลากิจ
+  ANNUAL_LEAVE    // ลาพักร้อน
+  NONE            // ไม่ได้ลา (check-in ปกติ)
 }
 
 enum TaskStatus {
@@ -42,6 +58,21 @@ enum ProjectRole {
   DESIGNER
   TESTER
   MEMBER
+}
+
+enum PhaseStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  REVIEW
+  DELIVERED
+  COMPLETED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
 }
 
 model User {
@@ -69,6 +100,10 @@ model Worksite {
   latitude    Decimal @db.Decimal(10, 8)
   longitude   Decimal @db.Decimal(11, 8)
   radius      Int     @default(500)
+  checkinStartTime String? // เวลาเริ่มเช็คอิน เช่น "08:00"
+  checkinEndTime   String? // เวลาสิ้นสุดเช็คอิน เช่น "09:00"
+  checkoutStartTime String? // เวลาเริ่มเช็คเอาท์ เช่น "17:00"
+  checkoutEndTime   String? // เวลาสิ้นสุดเช็คเอาท์ เช่น "18:00"
   isActive    Boolean @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -82,18 +117,20 @@ model Checkin {
   id           String       @id @default(cuid())
   type         CheckinType
   location     LocationType @default(ONSITE)
+  leaveType    LeaveType    @default(NONE)
   latitude     Decimal      @db.Decimal(10, 8)
   longitude    Decimal      @db.Decimal(11, 8)
   distance     Decimal      @db.Decimal(8, 2)
-  photo        String?      // Supabase Storage URL for offsite
-  reason       String?      // Required for offsite
+  photo        String?      // Supabase Storage URL for offsite/leave
+  reason       String?      // Required for offsite/leave
   notes        String?
+  isSystemGenerated Boolean  @default(false) // true สำหรับ ABSENT/AUTO_CHECKOUT
   createdAt    DateTime     @default(now())
 
   user         User      @relation(fields: [userId], references: [id])
   userId       String
   worksite     Worksite? @relation(fields: [worksiteId], references: [id])
-  worksiteId   String?   // null for offsite checkins
+  worksiteId   String?   // null for offsite checkins or leave
 
   @@map("checkins")
 }
@@ -114,25 +151,30 @@ model Project {
 
   tasks         Task[]
   members       ProjectMember[]
+  phases        ProjectPhase[]
 
   @@map("projects")
 }
 
 model Task {
-  id             String     @id @default(cuid())
+  id             String       @id @default(cuid())
   trelloCardId   String
   title          String
   description    String?
-  status         TaskStatus @default(TODO)
+  status         TaskStatus   @default(TODO)
+  priority       TaskPriority @default(MEDIUM)
   assignedUserId String?
   worksiteId     String?
   projectId      String?
+  phaseId        String?
+  startDate      DateTime?
   dueDate        DateTime?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
-  assignedUser   User?      @relation("UserTasks", fields: [assignedUserId], references: [id])
-  project        Project?   @relation(fields: [projectId], references: [id])
+  assignedUser   User?         @relation("UserTasks", fields: [assignedUserId], references: [id])
+  project        Project?      @relation(fields: [projectId], references: [id])
+  phase          ProjectPhase? @relation(fields: [phaseId], references: [id])
 
   @@map("tasks")
 }
@@ -151,4 +193,37 @@ model ProjectMember {
 
   @@unique([userId, projectId])
   @@map("project_members")
+}
+
+model ProjectPhase {
+  id            String      @id @default(cuid())
+  name          String
+  description   String?
+  orderIndex    Int         @default(0)
+  status        PhaseStatus @default(NOT_STARTED)
+  startDate     DateTime?
+  dueDate       DateTime?
+  deliverDate   DateTime?
+  trelloListId  String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  project       Project     @relation(fields: [projectId], references: [id])
+  projectId     String
+  tasks         Task[]
+
+  @@map("project_phases")
+}
+
+model EmailWhitelist {
+  id        String          @id @default(cuid())
+  email     String          @unique
+  status    WhitelistStatus @default(PENDING)
+  role      UserRole        @default(USER)
+  addedBy   String?         // Admin who added this email
+  reason    String?         // Reason for approval/rejection
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@map("email_whitelist")
 }

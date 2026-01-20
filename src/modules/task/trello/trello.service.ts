@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { TaskPriority } from '@prisma/client';
 
 @Injectable()
 export class TrelloService {
@@ -12,6 +14,7 @@ export class TrelloService {
   constructor(
     private configService: ConfigService,
     private httpService: HttpService,
+    private prisma: PrismaService,
   ) {
     this.apiKey = this.configService.get('trello.apiKey') || '';
     this.token = this.configService.get('trello.token') || '';
@@ -186,7 +189,7 @@ export class TrelloService {
     }));
   }
 
-  async createCard(listId: string, name: string, desc?: string, memberIds?: string[], startDate?: string, dueDate?: string, projectTag?: string) {
+  async createCard(listId: string, name: string, desc?: string, memberIds?: string[], startDate?: string, dueDate?: string, projectTag?: string, priority?: string) {
     // Add project tag to card name if provided
     const cardName = projectTag ? `[${projectTag}] ${name}` : name;
     const url = 'https://api.trello.com/1/cards';
@@ -202,6 +205,12 @@ export class TrelloService {
     const response = await firstValueFrom(
       this.httpService.post(url, data)
     );
+    
+    // Add priority label if provided
+    if (priority) {
+      await this.addPriorityLabel(response.data.id, priority);
+    }
+    
     return response.data;
   }
 
@@ -230,7 +239,7 @@ export class TrelloService {
     return response.data;
   }
 
-  async updateCard(cardId: string, updates: { listId?: string; name?: string; desc?: string; startDate?: string; dueDate?: string }) {
+  async updateCard(cardId: string, updates: { listId?: string; name?: string; desc?: string; startDate?: string; dueDate?: string; priority?: string }) {
     const url = `https://api.trello.com/1/cards/${cardId}`;
     const data = {
       ...this.getAuthParams(),
@@ -243,6 +252,12 @@ export class TrelloService {
     const response = await firstValueFrom(
       this.httpService.put(url, data)
     );
+    
+    // Update priority label if provided
+    if (updates.priority) {
+      await this.updatePriorityLabel(cardId, updates.priority);
+    }
+    
     return response.data;
   }
 
@@ -260,5 +275,188 @@ export class TrelloService {
       this.httpService.post(url, data)
     );
     return response.data;
+  }
+
+  async updateChecklistItem(cardId: string, checkItemId: string, state: 'complete' | 'incomplete') {
+    const url = `https://api.trello.com/1/cards/${cardId}/checkItem/${checkItemId}`;
+    const data = {
+      ...this.getAuthParams(),
+      state,
+    };
+    const response = await firstValueFrom(
+      this.httpService.put(url, data)
+    );
+    return response.data;
+  }
+
+  private async addPriorityLabel(cardId: string, priority: string) {
+    const labelColor = this.getPriorityColor(priority);
+    const url = `https://api.trello.com/1/cards/${cardId}/labels`;
+    const data = {
+      ...this.getAuthParams(),
+      color: labelColor,
+      name: `Priority: ${priority}`,
+    };
+    const response = await firstValueFrom(
+      this.httpService.post(url, data)
+    );
+    return response.data;
+  }
+
+  private async updatePriorityLabel(cardId: string, priority: string) {
+    // Remove existing priority labels first
+    await this.removePriorityLabels(cardId);
+    // Add new priority label
+    return this.addPriorityLabel(cardId, priority);
+  }
+
+  private async removePriorityLabels(cardId: string) {
+    const card = await this.getCard(cardId);
+    const priorityLabels = card.labels.filter(label => 
+      label.name && label.name.startsWith('Priority:')
+    );
+    
+    for (const label of priorityLabels) {
+      const url = `https://api.trello.com/1/cards/${cardId}/idLabels/${label.id}`;
+      await firstValueFrom(
+        this.httpService.delete(url, { params: this.getAuthParams() })
+      );
+    }
+  }
+
+  async unassignMemberFromCard(cardId: string, memberId: string) {
+    const url = `https://api.trello.com/1/cards/${cardId}/idMembers/${memberId}`;
+    const response = await firstValueFrom(
+      this.httpService.delete(url, { params: this.getAuthParams() })
+    );
+    return response.data;
+  }
+
+  async updateCardMembers(cardId: string, memberIds: string[]) {
+    const url = `https://api.trello.com/1/cards/${cardId}`;
+    const data = {
+      ...this.getAuthParams(),
+      idMembers: memberIds.join(',')
+    };
+    const response = await firstValueFrom(
+      this.httpService.put(url, data)
+    );
+    return response.data;
+  }
+
+  async assignCardToPhase(cardId: string, phaseId: string) {
+    // เพิ่ม custom field หรือ label เพื่อ track manual phase assignment
+    const url = `https://api.trello.com/1/cards/${cardId}`;
+    const data = {
+      ...this.getAuthParams(),
+      desc: await this.updateCardDescriptionWithPhase(cardId, phaseId)
+    };
+    const response = await firstValueFrom(
+      this.httpService.put(url, data)
+    );
+    
+    // TODO: Create cardPhaseAssignment table first
+    // await this.prisma.cardPhaseAssignment.upsert({
+    //   where: { cardId },
+    //   update: { phaseId, isManual: true },
+    //   create: { cardId, phaseId, isManual: true }
+    // });
+    
+    return response.data;
+  }
+
+  async removeCardFromPhase(cardId: string) {
+    // TODO: Create cardPhaseAssignment table first
+    // await this.prisma.cardPhaseAssignment.deleteMany({
+    //   where: { cardId }
+    // });
+    
+    // อัปเดต card description
+    const url = `https://api.trello.com/1/cards/${cardId}`;
+    const data = {
+      ...this.getAuthParams(),
+      desc: await this.removePhaseFromCardDescription(cardId)
+    };
+    const response = await firstValueFrom(
+      this.httpService.put(url, data)
+    );
+    
+    return response.data;
+  }
+
+  private async updateCardDescriptionWithPhase(cardId: string, phaseId: string): Promise<string> {
+    const card = await this.getCard(cardId);
+    const phase = await this.prisma.projectPhase.findUnique({
+      where: { id: phaseId },
+      select: { name: true }
+    });
+    
+    let desc = card.desc || '';
+    // ลบ phase tag เก่า (ถ้ามี)
+    desc = desc.replace(/\[PHASE:.*?\]/g, '').trim();
+    // เพิ่ม phase tag ใหม่
+    desc = `[PHASE:${phase?.name}] ${desc}`.trim();
+    
+    return desc;
+  }
+
+  private async removePhaseFromCardDescription(cardId: string): Promise<string> {
+    const card = await this.getCard(cardId);
+    let desc = card.desc || '';
+    // ลบ phase tag
+    desc = desc.replace(/\[PHASE:.*?\]/g, '').trim();
+    return desc;
+  }
+
+  private getPriorityColor(priority: string): string {
+    const colorMap = {
+      'CRITICAL': 'red',
+      'HIGH': 'orange', 
+      'MEDIUM': 'yellow',
+      'LOW': 'green'
+    };
+    return colorMap[priority] || 'yellow';
+  }
+
+  async createTaskFromCard(data: {
+    trelloCardId: string;
+    title: string;
+    description?: string;
+    projectId?: string;
+    phaseId?: string;
+    dueDate?: string;
+    priority?: TaskPriority;
+  }) {
+    // ไม่ต้องสร้าง Task ใน database แล้ว - ใช้ Trello เป็น single source
+    return { message: 'Using Trello as single source of truth' };
+  }
+
+  async getCardsFromList(listId: string) {
+    const url = `https://api.trello.com/1/lists/${listId}/cards`;
+    const params = {
+      ...this.getAuthParams(),
+      fields: 'all',
+      members: 'true',
+      labels: 'true'
+    };
+    const response = await firstValueFrom(
+      this.httpService.get(url, { params })
+    );
+    
+    return response.data.map(card => ({
+      id: card.id,
+      name: card.name,
+      desc: card.desc,
+      idList: card.idList,
+      listName: card.list?.name || 'Unknown',
+      due: card.due,
+      start: card.start,
+      dateLastActivity: card.dateLastActivity,
+      idMembers: card.idMembers,
+      members: card.members || [],
+      labels: card.labels || [],
+      url: card.url,
+      shortLink: card.shortLink
+    }));
   }
 }

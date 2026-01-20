@@ -26,6 +26,11 @@ export class UpdateCardDto {
   @IsOptional()
   @IsDateString()
   dueDate?: string;
+
+  @ApiProperty({ example: 'HIGH', enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], required: false })
+  @IsOptional()
+  @IsString()
+  priority?: string;
 }
 
 export class MoveCardDto {

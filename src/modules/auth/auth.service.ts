@@ -1,91 +1,84 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
-import { OAuthCallbackDto } from './dto/oauth-callback.dto';
+import { WhitelistStatus, UserRole } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
-  constructor(
-    private prisma: PrismaService,
-    private jwtService: JwtService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
-  async register(registerDto: RegisterDto) {
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: registerDto.email },
+  async checkWhitelist(email: string) {
+    const whitelist = await this.prisma.emailWhitelist.findUnique({
+      where: { email: email.toLowerCase() },
     });
 
-    if (existingUser) {
-      throw new ConflictException('Email already exists');
+    if (!whitelist || whitelist.status !== WhitelistStatus.APPROVED) {
+      return {
+        allowed: false,
+        message: 'Your email is not approved for using this system.',
+      };
     }
 
-    const user = await this.prisma.user.create({
-      data: {
-        auth0Id: `manual-${Date.now()}`, // Temporary for manual registration
-        email: registerDto.email,
-        name: `${registerDto.firstName} ${registerDto.lastName}`,
-      },
-    });
-
-    return user;
-  }
-
-  async login(loginDto: LoginDto) {
-    // For OAuth-based system, this should be replaced with OAuth flow
-    throw new UnauthorizedException('Please use OAuth login (Google/Auth0)');
-  }
-
-  async handleOAuthCallback(oauthData: OAuthCallbackDto) {
-    const user = await this.createOrUpdateOAuthUser({
-      auth0Id: oauthData.sub,
-      email: oauthData.email,
-      name: oauthData.name,
-      picture: oauthData.picture,
-    });
-
-    // Generate JWT token
-    const payload = { sub: user.id, email: user.email, role: user.role };
-    const token = this.jwtService.sign(payload);
-
     return {
-      access_token: token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        picture: user.picture,
-        role: user.role,
-      },
+      allowed: true,
+      role: whitelist.role,
+      message: 'Access granted',
     };
   }
 
-  async createOrUpdateOAuthUser(oauthData: { auth0Id: string; email: string; name?: string; picture?: string }) {
-    const existingUser = await this.prisma.user.findUnique({
-      where: { auth0Id: oauthData.auth0Id },
+  async addToWhitelist(email: string, role: UserRole = UserRole.USER) {
+    return this.prisma.emailWhitelist.upsert({
+      where: { email: email.toLowerCase() },
+      update: {
+        status: WhitelistStatus.APPROVED,
+        role,
+        updatedAt: new Date(),
+      },
+      create: {
+        email: email.toLowerCase(),
+        status: WhitelistStatus.APPROVED,
+        role,
+      },
     });
+  }
 
-    if (existingUser) {
-      // Update existing user
-      return this.prisma.user.update({
-        where: { id: existingUser.id },
-        data: {
-          email: oauthData.email,
-          name: oauthData.name,
-          picture: oauthData.picture,
-        },
-      });
-    }
+  async getWhitelist() {
+    return this.prisma.emailWhitelist.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 
-    // Create new user
-    return this.prisma.user.create({
+  async createOrUpdateUser(userData: {
+    auth0Id: string;
+    email: string;
+    name: string;
+    picture?: string;
+    role: UserRole;
+  }) {
+    return this.prisma.user.upsert({
+      where: { auth0Id: userData.auth0Id },
+      update: {
+        email: userData.email.toLowerCase(),
+        name: userData.name,
+        picture: userData.picture,
+        role: userData.role,
+      },
+      create: {
+        auth0Id: userData.auth0Id,
+        email: userData.email.toLowerCase(),
+        name: userData.name,
+        picture: userData.picture,
+        role: userData.role,
+      },
+    });
+  }
+
+  async updateWhitelistStatus(email: string, status: WhitelistStatus, reason?: string) {
+    return this.prisma.emailWhitelist.update({
+      where: { email: email.toLowerCase() },
       data: {
-        auth0Id: oauthData.auth0Id,
-        email: oauthData.email,
-        name: oauthData.name,
-        picture: oauthData.picture,
+        status,
+        reason,
+        updatedAt: new Date(),
       },
     });
   }
