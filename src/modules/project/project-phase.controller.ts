@@ -1,8 +1,11 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Put, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Put, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { ProjectPhaseService } from './project-phase.service';
 import { CreateProjectPhaseDto, UpdateProjectPhaseDto } from './dto/project-phase.dto';
 import { ReorderPhasesDto } from './dto/reorder-phases.dto';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @ApiTags('Project Phases')
 @Controller('projects/:projectId/phases')
@@ -10,6 +13,9 @@ export class ProjectPhaseController {
   constructor(private readonly phaseService: ProjectPhaseService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create new project phase' })
   @ApiParam({ name: 'projectId', description: 'Project ID' })
   @ApiResponse({ status: 201, description: 'Phase created successfully' })
@@ -50,6 +56,9 @@ export class ProjectPhaseController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
   @ApiOperation({ 
     summary: 'Update project phase',
     description: `Update phase details. All fields are optional.
@@ -91,6 +100,9 @@ export class ProjectPhaseController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete project phase' })
   @ApiParam({ name: 'projectId', description: 'Project ID' })
   @ApiParam({ name: 'id', description: 'Phase ID' })
@@ -100,6 +112,9 @@ export class ProjectPhaseController {
   }
 
   @Put('reorder')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
   @ApiOperation({ 
     summary: 'Reorder project phases',
     description: 'Change the order of phases by providing array of phase IDs in desired order'

@@ -1,6 +1,6 @@
 import { IsString, IsNumber, IsOptional, IsEnum, IsBase64 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { CheckinType, LeaveType } from '@prisma/client';
+import { CheckinType, LeaveType } from '../../../common/prisma-types';
 
 export class CreateCheckinDto {
   @ApiProperty({ example: 'CHECK_IN', enum: CheckinType })

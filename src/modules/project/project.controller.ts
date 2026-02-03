@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { ProjectService } from './project.service';
 import { ProjectMemberService } from './project-member.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -18,6 +20,9 @@ export class ProjectController {
   ) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create new project with Trello board integration' })
   @ApiResponse({ status: 201, description: 'Project created successfully', type: ProjectResponseDto })
   @ApiResponse({ status: 409, description: 'Project key already exists', type: ErrorResponseDto })
@@ -57,6 +62,9 @@ export class ProjectController {
   }
 
   @Put(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update project' })
   @ApiResponse({ status: 200, description: 'Project updated successfully', type: ProjectResponseDto })
   @ApiResponse({ status: 404, description: 'Project not found', type: ErrorResponseDto })
@@ -122,6 +130,9 @@ export class ProjectController {
   }
 
   @Put(':id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update project active status (soft delete/restore)' })
   @ApiResponse({ status: 200, description: 'Project status updated successfully', type: ProjectResponseDto })
   @ApiResponse({ status: 404, description: 'Project not found', type: ErrorResponseDto })

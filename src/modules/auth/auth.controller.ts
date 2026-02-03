@@ -1,11 +1,12 @@
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { AddWhitelistDto } from './dto/add-whitelist.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -27,9 +28,10 @@ export class AuthController {
   @Post('whitelist/add')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Add email to whitelist (Admin only)' })
   @ApiResponse({ status: 201, description: 'Email added to whitelist' })
-  async addToWhitelist(@Body() body: { email: string; role?: 'USER' | 'ADMIN' }) {
+  async addToWhitelist(@Body() body: AddWhitelistDto) {
     return this.authService.addToWhitelist(body.email, body.role || 'USER');
   }
 
@@ -89,6 +91,7 @@ export class AuthController {
   @Get('whitelist')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all whitelist entries (Admin only)' })
   @ApiResponse({ status: 200, description: 'Whitelist entries retrieved' })
   async getWhitelist() {

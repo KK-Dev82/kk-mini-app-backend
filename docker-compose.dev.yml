@@ -22,13 +22,15 @@ services:
       retries: 5
 
   app:
-    image: wlb-backend:latest  # Use pre-built image
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: wlb-backend
     restart: unless-stopped
     ports:
       - "3001:3001"
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: 3001
       DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-password}@postgres:5432/wlb_db?schema=public
       JWT_SECRET: ${JWT_SECRET}
